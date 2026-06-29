@@ -175,6 +175,78 @@ create policy "Public can delete member plans"
 on public.member_plans for delete
 using (true);
 
+create or replace function public.enforce_member_plan_limits()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  plan_count integer;
+  earned_count integer;
+begin
+  if TG_OP = 'INSERT' then
+    select count(*) into plan_count
+    from public.member_plans mp
+    where mp.member_id = NEW.member_id
+      and mp.week = NEW.week;
+
+    if plan_count >= 5 then
+      raise exception '每位成员每周最多只能设置 5 条本周计划';
+    end if;
+  end if;
+
+  if coalesce(NEW.completed, false) then
+    NEW.points = least(greatest(coalesce(NEW.points, 1), 0), 1);
+
+    if NEW.points > 0 then
+      select count(*) into earned_count
+      from public.member_plans mp
+      where mp.member_id = NEW.member_id
+        and mp.week = NEW.week
+        and mp.completed = true
+        and coalesce(mp.points, 0) > 0
+        and mp.id <> coalesce(NEW.id, 0);
+
+      if earned_count >= 5 then
+        NEW.points = 0;
+      end if;
+    end if;
+  else
+    NEW.points = 0;
+  end if;
+
+  return NEW;
+end;
+$$;
+
+drop trigger if exists member_plan_limits_guard on public.member_plans;
+create trigger member_plan_limits_guard
+before insert or update on public.member_plans
+for each row
+execute function public.enforce_member_plan_limits();
+
+with ranked_completed_plans as (
+  select
+    id,
+    row_number() over (
+      partition by member_id, week
+      order by completed_at nulls last, created_at, id
+    ) as completed_rank
+  from public.member_plans
+  where completed = true
+)
+update public.member_plans mp
+set points = case
+  when r.completed_rank <= 5 then least(greatest(coalesce(mp.points, 1), 0), 1)
+  else 0
+end
+from ranked_completed_plans r
+where mp.id = r.id;
+
+update public.member_plans
+set points = 0
+where completed = false and coalesce(points, 0) <> 0;
+
 drop policy if exists "Public can read checkins" on public.checkins;
 create policy "Public can read checkins"
 on public.checkins for select

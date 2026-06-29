@@ -74,6 +74,12 @@ function activeMember() {
   return state.members.find((m) => Number(m.id) === Number(currentEmployee.id)) || currentEmployee;
 }
 
+function hashString(value) {
+  return String(value || "")
+    .split("")
+    .reduce((sum, char) => sum + char.charCodeAt(0), 0);
+}
+
 function memberDisplayName(member) {
   return member?.nickname || member?.name || "成员";
 }
@@ -83,7 +89,21 @@ function memberUsername(member) {
 }
 
 function avatarFor(member) {
-  return member?.avatar_data || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' rx='60' fill='%23eef2ff'/%3E%3Ctext x='60' y='70' text-anchor='middle' font-size='46' fill='%232563eb' font-family='Arial'%3E%F0%9F%91%A4%3C/text%3E%3C/svg%3E";
+  if (member?.avatar_data) return member.avatar_data;
+  const animals = ["🐼", "🐱", "🐶", "🦊", "🐰", "🐻", "🐨", "🐯", "🦁", "🐵"];
+  const colors = ["#fff3bf", "#dbeafe", "#dcfce7", "#fce7f3", "#ede9fe", "#cffafe", "#ffedd5", "#e0f2fe"];
+  const seed = hashString(member?.id || member?.username || member?.name || "tdd");
+  const animal = animals[seed % animals.length];
+  const bg = colors[seed % colors.length];
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+      <rect width="120" height="120" rx="60" fill="${bg}"/>
+      <circle cx="36" cy="32" r="14" fill="#ffffff" opacity="0.72"/>
+      <circle cx="88" cy="88" r="18" fill="#ffffff" opacity="0.56"/>
+      <text x="60" y="76" text-anchor="middle" font-size="54" font-family="Segoe UI Emoji, Apple Color Emoji, Arial">${animal}</text>
+    </svg>
+  `;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
 function applyMemberBackground(member) {
@@ -396,13 +416,20 @@ async function completePlan(id) {
     const { error } = await supabase.from("member_plans").update({ completed: false, completed_at: null, points: 0 }).eq("id", plan.id);
     if (error) return toast(error.message);
   } else {
+    const earnedPlanCount = state.memberPlans.filter((p) =>
+      Number(p.member_id) === Number(plan.member_id)
+      && p.week === plan.week
+      && p.completed
+      && Number(p.points || 0) > 0
+    ).length;
+    const points = earnedPlanCount >= 5 ? 0 : 1;
     const { error } = await supabase.from("member_plans").update({
       completed: true,
       completed_at: new Date().toISOString(),
-      points: 1,
+      points,
     }).eq("id", plan.id);
     if (error) return toast(error.message);
-    toast("完成计划，获得 1 分。");
+    toast(points ? "完成计划，获得 1 分。" : "完成计划。本周计划积分已达 5 分上限。");
   }
   await loadAll();
 }
