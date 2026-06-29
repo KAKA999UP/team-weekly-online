@@ -42,8 +42,8 @@
           <div id="profilePanel" class="profile-tools hidden">
             <input id="nicknameInput" class="mini-input" placeholder="昵称" title="我的昵称" />
             <input id="bgColorInput" class="mini-color" type="color" value="#f6f7fb" title="背景色" />
-            <label class="icon-button" title="上传头像" aria-label="上传头像">
-              <span>🖼</span>
+            <label class="icon-button avatar-upload" title="上传头像" aria-label="上传头像">
+              <span class="cartoon-icon avatar-icon"></span>
               <input id="avatarInput" type="file" accept="image/*" />
             </label>
             <button id="saveProfile" class="icon-button primary" title="保存设置" aria-label="保存设置">✓</button>
@@ -59,9 +59,9 @@
           <div id="quoteBox" class="quote hidden"></div>
           <div id="myPlans" class="todo-list"></div>
           <div class="button-row icon-row">
-            <button id="addPlanBtn" class="icon-action" title="新增计划" aria-label="新增计划">＋</button>
-            <button id="editPlanBtn" class="icon-action" title="修改计划" aria-label="修改计划">✎</button>
-            <button id="showPlanBtn" class="icon-action" title="收起编辑框" aria-label="收起编辑框">⌄</button>
+            <button id="addPlanBtn" class="icon-action add-icon" title="新增计划" aria-label="新增计划"><span class="cartoon-icon"></span></button>
+            <button id="editPlanBtn" class="icon-action edit-icon" title="修改计划" aria-label="修改计划"><span class="cartoon-icon"></span></button>
+            <button id="showPlanBtn" class="icon-action show-icon" title="显示/收起计划" aria-label="显示/收起计划"><span class="cartoon-icon"></span></button>
           </div>
           <div id="planEditor" class="editor hidden">
             <p class="hint">一行一个 Todo，最多 5 条，系统会自动整理成 1、2、3 的计划清单。</p>
@@ -78,22 +78,23 @@
             <div id="leaderPlans" class="list"></div>
           </section>
 
-          <section class="panel task-card">
-            <div class="panel-title">
-              <h2>Leader 专属任务</h2>
-            </div>
-            <div id="dedicatedTasks" class="list"></div>
-          </section>
-        </section>
+          <div class="side-stack">
+            <section class="panel task-card">
+              <div class="panel-title">
+                <h2>Leader 专属任务</h2>
+              </div>
+              <div id="dedicatedTasks" class="list"></div>
+            </section>
 
-        <section class="panel suggestion-card">
-          <div class="panel-title">
-            <h2>我给公司提建议</h2>
-            <span>提交后 Leader 可以在后台查看</span>
-          </div>
-          <textarea id="suggestionText" placeholder="写下你的建议、想法或需要 Leader 关注的问题"></textarea>
-          <div class="button-row">
-            <button id="submitSuggestion" class="primary">提交建议</button>
+            <section class="panel suggestion-card">
+              <div class="panel-title">
+                <h2>我给公司提建议</h2>
+              </div>
+              <textarea id="suggestionText" placeholder="写下建议、想法或需要关注的问题"></textarea>
+              <div class="button-row">
+                <button id="submitSuggestion" class="primary">提交建议</button>
+              </div>
+            </section>
           </div>
         </section>
 
