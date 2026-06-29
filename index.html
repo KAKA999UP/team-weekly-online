@@ -30,7 +30,7 @@
             <div>
               <span class="label">当前成员</span>
               <strong id="currentEmployee">未登录</strong>
-              <p class="meta">成员账号由 Leader 创建。登录后可提交计划、完成任务和打卡。</p>
+              <p id="currentEmployeeMeta" class="meta">成员账号由 Leader 创建。登录后可提交计划、完成任务和打卡。</p>
             </div>
           </div>
           <div class="score">
@@ -42,9 +42,13 @@
         <section id="profilePanel" class="panel hidden">
           <div class="panel-title">
             <h2>我的页面设置</h2>
-            <span>背景色和头像会保存到云端</span>
+            <span>昵称、背景色和头像会保存到云端</span>
           </div>
           <div class="profile-settings">
+            <label>
+              <span>我的昵称</span>
+              <input id="nicknameInput" placeholder="例如：小张" />
+            </label>
             <label>
               <span>网页背景色</span>
               <input id="bgColorInput" type="color" value="#f6f7fb" />
@@ -71,7 +75,7 @@
             <button id="showPlanBtn">显示计划</button>
           </div>
           <div id="planEditor" class="editor hidden">
-            <p class="hint">一行一个 Todo，回车继续写下一条。</p>
+            <p class="hint">一行一个 Todo，系统会自动整理成 1、2、3 的计划清单。</p>
             <textarea id="todoInput">1. </textarea>
             <button id="submitTodos" class="primary">提交计划</button>
           </div>
@@ -90,20 +94,49 @@
           </div>
           <div id="dedicatedTasks" class="list"></div>
         </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>我给公司提建议</h2>
+            <span>提交后 Leader 可以在后台查看</span>
+          </div>
+          <textarea id="suggestionText" placeholder="写下你的建议、想法或需要 Leader 关注的问题"></textarea>
+          <div class="button-row">
+            <button id="submitSuggestion" class="primary">提交建议</button>
+          </div>
+        </section>
       </section>
 
       <section id="leaderView" class="view">
+        <section class="panel">
+          <div class="panel-title">
+            <h2>按周查询记录</h2>
+            <span>格式示例：2026-W27</span>
+          </div>
+          <div class="query-row">
+            <input id="queryWeek" placeholder="例如 2026-W27" />
+            <button id="applyWeek" class="primary">查询本周记录</button>
+          </div>
+        </section>
+
         <section class="grid">
           <section class="panel">
             <h2>发布全员计划</h2>
+            <div class="query-row">
+              <select id="planSelect"></select>
+              <button id="loadPlanForEdit">载入修改</button>
+            </div>
             <input id="leaderTitle" placeholder="计划标题" />
             <textarea id="leaderDetails" placeholder="计划内容"></textarea>
-            <button id="publishPlan" class="primary">发布</button>
+            <div class="button-row">
+              <button id="publishPlan" class="primary">发布新计划</button>
+              <button id="updatePlan">保存修改</button>
+            </div>
           </section>
 
           <section class="panel">
             <h2>新建成员账号</h2>
-            <input id="newMemberName" placeholder="员工姓名备注" />
+            <input id="newMemberName" placeholder="员工名字" />
             <input id="newUsername" placeholder="初始账户名" />
             <input id="newPassword" placeholder="初始密码" />
             <button id="createAccount" class="primary">创建/重置账号</button>
@@ -113,7 +146,7 @@
         <section class="panel">
           <div class="panel-title">
             <h2>成员账号</h2>
-            <span>Leader 可查看初始/当前密码</span>
+            <span>可修改用户名、备注，也可删除成员</span>
           </div>
           <div id="accountList" class="list"></div>
         </section>
@@ -149,6 +182,14 @@
             <h2>成员计划与全员进度</h2>
           </div>
           <div id="progressBoard" class="progress-board"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>成员建议</h2>
+            <span>来自成员端的留言</span>
+          </div>
+          <div id="suggestionList" class="list"></div>
         </section>
       </section>
     </main>

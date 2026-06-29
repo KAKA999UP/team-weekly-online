@@ -10,10 +10,12 @@ let state = {
   checkins: [],
   awards: [],
   dedicatedTasks: [],
+  suggestions: [],
   accounts: [],
 };
 let currentEmployee = JSON.parse(localStorage.getItem("tddCurrentEmployee") || "null");
 let leaderCode = sessionStorage.getItem("teamWeeklyLeaderCode") || "";
+let leaderWeekFilter = localStorage.getItem("tddLeaderWeekFilter") || currentWeek();
 let editorMode = "add";
 let pendingAvatarData = "";
 
@@ -24,7 +26,7 @@ const quotes = [
   "今天完成一点点，周五就轻松一点点。",
   "行动会带来清晰，完成会带来自信。",
   "把计划写下来，把结果做出来。",
-  "稳稳推进的人，最后最有力量。",
+  "稳定推进的人，最后最有力量。",
   "响应快一点，协作就顺一点。",
   "完成一项，就是给未来的自己减负。",
 ];
@@ -69,6 +71,14 @@ function activeMember() {
   return state.members.find((m) => Number(m.id) === Number(currentEmployee.id)) || currentEmployee;
 }
 
+function memberDisplayName(member) {
+  return member?.nickname || member?.name || "成员";
+}
+
+function memberUsername(member) {
+  return member?.username || currentEmployee?.username || "未设置";
+}
+
 function avatarFor(member) {
   return member?.avatar_data || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' rx='60' fill='%23eef2ff'/%3E%3Ctext x='60' y='70' text-anchor='middle' font-size='46' fill='%232563eb' font-family='Arial'%3E%F0%9F%91%A4%3C/text%3E%3C/svg%3E";
 }
@@ -87,16 +97,26 @@ function memberPoints(memberId) {
     + awards.reduce((sum, a) => sum + Number(a.points || 0), 0);
 }
 
+function memberById(id) {
+  return state.members.find((m) => Number(m.id) === Number(id));
+}
+
+function checkinsForWeek(memberId, week) {
+  const planIds = new Set(state.leaderPlans.filter((p) => p.week === week).map((p) => Number(p.id)));
+  return state.checkins.filter((c) => Number(c.member_id) === Number(memberId) && planIds.has(Number(c.leader_plan_id)));
+}
+
 async function loadAll() {
-  const [members, leaderPlans, memberPlans, checkins, awards, dedicatedTasks] = await Promise.all([
-    supabase.from("members").select("id,name,username,avatar_data,bg_color,created_at").order("name"),
+  const [members, leaderPlans, memberPlans, checkins, awards, dedicatedTasks, suggestions] = await Promise.all([
+    supabase.from("members").select("id,name,username,nickname,avatar_data,bg_color,created_at").order("name"),
     supabase.from("leader_plans").select("*").order("created_at", { ascending: false }),
     supabase.from("member_plans").select("*").order("created_at", { ascending: true }),
     supabase.from("checkins").select("*").order("created_at", { ascending: false }),
     supabase.from("point_awards").select("*").order("created_at", { ascending: false }),
     supabase.from("dedicated_tasks").select("*").order("created_at", { ascending: true }),
+    supabase.from("suggestions").select("*").order("created_at", { ascending: false }),
   ]);
-  for (const result of [members, leaderPlans, memberPlans, checkins, awards, dedicatedTasks]) {
+  for (const result of [members, leaderPlans, memberPlans, checkins, awards, dedicatedTasks, suggestions]) {
     if (result.error) throw result.error;
   }
   state.members = members.data || [];
@@ -105,6 +125,7 @@ async function loadAll() {
   state.checkins = checkins.data || [];
   state.awards = awards.data || [];
   state.dedicatedTasks = dedicatedTasks.data || [];
+  state.suggestions = suggestions.data || [];
   if (leaderCode) await loadLeaderAccounts();
   render();
 }
@@ -117,16 +138,19 @@ async function loadLeaderAccounts() {
 function renderEmployee() {
   const member = activeMember();
   if (currentEmployee) {
-    $("currentEmployee").textContent = `${member?.name || currentEmployee.name}（${member?.username || currentEmployee.username || "成员"}）`;
+    $("currentEmployee").textContent = memberDisplayName(member);
+    $("currentEmployeeMeta").textContent = `用户名：${memberUsername(member)}　员工名：${member?.name || currentEmployee.name || "未设置"}`;
     $("logoutBtn").classList.remove("hidden");
     $("changePasswordBtn").classList.remove("hidden");
     $("profilePanel").classList.remove("hidden");
     $("employeeLoginBtn").textContent = "切换成员";
     $("avatarPreview").src = avatarFor(member);
+    $("nicknameInput").value = member?.nickname || "";
     $("bgColorInput").value = member?.bg_color || "#f6f7fb";
     applyMemberBackground(member);
   } else {
     $("currentEmployee").textContent = "未登录";
+    $("currentEmployeeMeta").textContent = "成员账号由 Leader 创建。登录后可提交计划、完成任务和打卡。";
     $("logoutBtn").classList.add("hidden");
     $("changePasswordBtn").classList.add("hidden");
     $("profilePanel").classList.add("hidden");
@@ -155,8 +179,7 @@ function renderMyPlans() {
     return;
   }
   $("myPlans").innerHTML = plans
-    .map(
-      (plan, index) => `
+    .map((plan, index) => `
       <article class="item todo-item ${plan.completed ? "done" : ""}">
         <div>
           <strong>${index + 1}. ${escapeHtml(plan.title)}</strong>
@@ -166,18 +189,18 @@ function renderMyPlans() {
           ${plan.completed ? "撤回" : "完成"}
         </button>
       </article>
-    `
-    )
+    `)
     .join("");
 }
 
 function renderLeaderPlans() {
   const member = activeMember();
-  if (!state.leaderPlans.length) {
-    $("leaderPlans").innerHTML = `<div class="item meta">Leader 还没有发布计划。</div>`;
+  const plans = state.leaderPlans.filter((plan) => plan.week === currentWeek());
+  if (!plans.length) {
+    $("leaderPlans").innerHTML = `<div class="item meta">Leader 还没有发布本周计划。</div>`;
     return;
   }
-  $("leaderPlans").innerHTML = state.leaderPlans
+  $("leaderPlans").innerHTML = plans
     .map((plan) => {
       const checked = member && state.checkins.find((c) => Number(c.member_id) === Number(member.id) && Number(c.leader_plan_id) === Number(plan.id));
       return `
@@ -220,38 +243,50 @@ function renderDedicatedTasks() {
   `).join("");
 }
 
-function renderLeader() {
-  const memberOptions = state.members
-    .map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`)
-    .join("");
-  $("rewardMember").innerHTML = memberOptions;
-  $("taskMember").innerHTML = memberOptions;
+function renderPlanSelect() {
+  const plans = state.leaderPlans.filter((plan) => plan.week === leaderWeekFilter);
+  $("planSelect").innerHTML = plans
+    .map((plan) => `<option value="${plan.id}">${escapeHtml(plan.title)}</option>`)
+    .join("") || `<option value="">本周暂无计划</option>`;
+}
 
+function renderAccounts() {
   $("accountList").innerHTML = state.accounts
-    .map(
-      (a) => `
-      <article class="item">
-        <strong>${escapeHtml(a.name)}</strong>
-        <div class="meta">账号：${escapeHtml(a.username || "未设置")} · 密码：${escapeHtml(a.password_plain || "未设置")} · 总积分：${memberPoints(a.member_id)}</div>
+    .map((a) => `
+      <article class="item account-item">
+        <div class="profile-row">
+          <img class="avatar small-avatar" src="${avatarFor(a)}" alt="头像" />
+          <div>
+            <strong>${escapeHtml(a.name || "未命名成员")}</strong>
+            <div class="meta">用户名：${escapeHtml(a.username || "未设置")} · 密码：${escapeHtml(a.password_plain || "未设置")} · 积分：${memberPoints(a.member_id)}</div>
+            <div class="meta">成员昵称：${escapeHtml(a.nickname || "未设置")} · Leader 备注：${escapeHtml(a.leader_remark || "无")}</div>
+          </div>
+        </div>
+        <div class="account-actions">
+          <button data-edit-account="${a.member_id}">修改</button>
+          <button class="danger" data-delete-member="${a.member_id}">删除</button>
+        </div>
       </article>
-    `
-    )
+    `)
     .join("") || `<div class="item meta">暂无成员账号。</div>`;
+}
 
+function renderLeaderProgress() {
   $("progressBoard").innerHTML = state.members
     .map((member) => {
-      const plans = state.memberPlans.filter((p) => Number(p.member_id) === Number(member.id) && p.week === currentWeek());
+      const plans = state.memberPlans.filter((p) => Number(p.member_id) === Number(member.id) && p.week === leaderWeekFilter);
       const done = plans.filter((p) => p.completed).length;
       const pct = plans.length ? Math.round((done / plans.length) * 100) : 0;
-      const checkins = state.checkins.filter((c) => Number(c.member_id) === Number(member.id));
-      const tasks = state.dedicatedTasks.filter((t) => Number(t.member_id) === Number(member.id) && t.week === currentWeek());
+      const checkins = checkinsForWeek(member.id, leaderWeekFilter);
+      const tasks = state.dedicatedTasks.filter((t) => Number(t.member_id) === Number(member.id) && t.week === leaderWeekFilter);
       const taskDone = tasks.filter((t) => t.completed).length;
       return `
         <article class="item">
           <div class="profile-row">
             <img class="avatar" src="${avatarFor(member)}" alt="头像" />
             <div>
-              <strong>${escapeHtml(member.name)}</strong>
+              <strong>${escapeHtml(memberDisplayName(member))}</strong>
+              <div class="meta">用户名：${escapeHtml(member.username || "未设置")} · 员工名：${escapeHtml(member.name)}</div>
               <div class="meta">自定计划 ${done}/${plans.length} · ${pct}% · 打卡 ${checkins.length} 次 · 专属任务 ${taskDone}/${tasks.length} · 总积分 ${memberPoints(member.id)}</div>
             </div>
           </div>
@@ -262,6 +297,35 @@ function renderLeader() {
       `;
     })
     .join("") || `<div class="item meta">暂无进度。</div>`;
+}
+
+function renderSuggestions() {
+  $("suggestionList").innerHTML = state.suggestions
+    .map((item) => {
+      const member = memberById(item.member_id);
+      const time = new Date(item.created_at).toLocaleString("zh-CN");
+      return `
+        <article class="item">
+          <strong>${escapeHtml(memberDisplayName(member))}</strong>
+          <div class="meta">${escapeHtml(member?.username || "")} · ${time}</div>
+          <p>${escapeHtml(item.message).replaceAll("\n", "<br>")}</p>
+        </article>
+      `;
+    })
+    .join("") || `<div class="item meta">暂无成员建议。</div>`;
+}
+
+function renderLeader() {
+  const memberOptions = state.members
+    .map((m) => `<option value="${m.id}">${escapeHtml(memberDisplayName(m))}（${escapeHtml(m.username || "无用户名")}）</option>`)
+    .join("");
+  $("rewardMember").innerHTML = memberOptions;
+  $("taskMember").innerHTML = memberOptions;
+  $("queryWeek").value = leaderWeekFilter;
+  renderPlanSelect();
+  renderAccounts();
+  renderLeaderProgress();
+  renderSuggestions();
 }
 
 function render() {
@@ -348,7 +412,7 @@ async function publishPlan() {
   if (!title || !details) return toast("请填写标题和内容。");
   const { error } = await supabase.rpc("leader_create_plan", {
     p_code: leaderCode,
-    p_week: currentWeek(),
+    p_week: leaderWeekFilter || currentWeek(),
     p_title: title,
     p_details: details,
   });
@@ -357,6 +421,32 @@ async function publishPlan() {
   $("leaderDetails").value = "";
   await loadAll();
   toast("计划已发布。");
+}
+
+function loadPlanForEdit() {
+  const plan = state.leaderPlans.find((p) => Number(p.id) === Number($("planSelect").value));
+  if (!plan) return toast("请选择一个已有计划。");
+  $("leaderTitle").value = plan.title;
+  $("leaderDetails").value = plan.details;
+  toast("已载入，可以修改后点“保存修改”。");
+}
+
+async function updatePlan() {
+  const planId = Number($("planSelect").value);
+  const title = $("leaderTitle").value.trim();
+  const details = $("leaderDetails").value.trim();
+  if (!planId) return toast("请选择要修改的计划。");
+  if (!title || !details) return toast("请填写标题和内容。");
+  const { error } = await supabase.rpc("leader_update_plan", {
+    p_code: leaderCode,
+    p_plan_id: planId,
+    p_week: leaderWeekFilter || currentWeek(),
+    p_title: title,
+    p_details: details,
+  });
+  if (error) return toast(error.message);
+  await loadAll();
+  toast("计划已修改。");
 }
 
 async function createAccount() {
@@ -377,6 +467,43 @@ async function createAccount() {
   toast("成员账号已创建/重置。");
 }
 
+async function editAccount(memberId) {
+  const account = state.accounts.find((a) => Number(a.member_id) === Number(memberId));
+  if (!account) return;
+  const name = prompt("员工名字", account.name || "");
+  if (name === null) return;
+  const username = prompt("成员用户名", account.username || "");
+  if (username === null) return;
+  const remark = prompt("Leader 私有备注（成员端看不到）", account.leader_remark || "");
+  if (remark === null) return;
+  const password = prompt("新密码（不修改请留空）", "");
+  if (password === null) return;
+  const { error } = await supabase.rpc("leader_update_member_account", {
+    p_code: leaderCode,
+    p_member_id: Number(memberId),
+    p_name: name,
+    p_username: username,
+    p_password: password,
+    p_leader_remark: remark,
+  });
+  if (error) return toast(error.message);
+  await loadAll();
+  toast("成员账号已修改。");
+}
+
+async function deleteMember(memberId) {
+  const account = state.accounts.find((a) => Number(a.member_id) === Number(memberId));
+  const ok = confirm(`确定删除成员“${account?.name || memberId}”吗？删除后 TA 的计划、打卡、积分记录也会一起删除。`);
+  if (!ok) return;
+  const { error } = await supabase.rpc("leader_delete_member", {
+    p_code: leaderCode,
+    p_member_id: Number(memberId),
+  });
+  if (error) return toast(error.message);
+  await loadAll();
+  toast("成员已删除。");
+}
+
 async function assignTask() {
   const memberId = Number($("taskMember").value);
   const title = $("taskTitle").value.trim();
@@ -385,7 +512,7 @@ async function assignTask() {
   const { error } = await supabase.rpc("leader_create_dedicated_task", {
     p_code: leaderCode,
     p_member_id: memberId,
-    p_week: currentWeek(),
+    p_week: leaderWeekFilter || currentWeek(),
     p_title: title,
     p_details: details,
   });
@@ -457,15 +584,31 @@ function resizeAvatar(file) {
 async function saveProfile() {
   const member = activeMember();
   if (!member) return toast("请先登录成员账号。");
-  const updates = {
-    bg_color: $("bgColorInput").value || "#f6f7fb",
-  };
-  if (pendingAvatarData) updates.avatar_data = pendingAvatarData;
-  const { error } = await supabase.from("members").update(updates).eq("id", member.id);
+  const { error } = await supabase.rpc("member_update_profile", {
+    p_member_id: Number(member.id),
+    p_nickname: $("nicknameInput").value.trim(),
+    p_avatar_data: pendingAvatarData || member.avatar_data || null,
+    p_bg_color: $("bgColorInput").value || "#f6f7fb",
+  });
   if (error) return toast(error.message);
   pendingAvatarData = "";
   await loadAll();
   toast("页面设置已保存。");
+}
+
+async function submitSuggestion() {
+  const member = activeMember();
+  const message = $("suggestionText").value.trim();
+  if (!member) return toast("请先登录成员账号。");
+  if (!message) return toast("请先填写建议内容。");
+  const { error } = await supabase.from("suggestions").insert({
+    member_id: Number(member.id),
+    message,
+  });
+  if (error) return toast(error.message);
+  $("suggestionText").value = "";
+  await loadAll();
+  toast("建议已提交，Leader 可以查看。");
 }
 
 async function changePassword() {
@@ -489,9 +632,13 @@ document.addEventListener("click", async (event) => {
   const completeId = event.target.dataset.complete;
   const checkinId = event.target.dataset.checkin;
   const taskId = event.target.dataset.taskComplete;
+  const editId = event.target.dataset.editAccount;
+  const deleteId = event.target.dataset.deleteMember;
   if (completeId) await completePlan(completeId);
   if (checkinId) await checkin(checkinId);
   if (taskId) await completeDedicatedTask(taskId);
+  if (editId) await editAccount(editId);
+  if (deleteId) await deleteMember(deleteId);
 });
 
 $("addPlanBtn").addEventListener("click", () => {
@@ -515,10 +662,19 @@ $("editPlanBtn").addEventListener("click", () => {
 
 $("showPlanBtn").addEventListener("click", () => $("planEditor").classList.add("hidden"));
 $("submitTodos").addEventListener("click", submitTodos);
+$("submitSuggestion").addEventListener("click", submitSuggestion);
 $("publishPlan").addEventListener("click", publishPlan);
+$("loadPlanForEdit").addEventListener("click", loadPlanForEdit);
+$("updatePlan").addEventListener("click", updatePlan);
 $("createAccount").addEventListener("click", createAccount);
 $("assignTask").addEventListener("click", assignTask);
 $("giveReward").addEventListener("click", adjustPoints);
+$("applyWeek").addEventListener("click", () => {
+  leaderWeekFilter = $("queryWeek").value.trim() || currentWeek();
+  localStorage.setItem("tddLeaderWeekFilter", leaderWeekFilter);
+  render();
+  toast(`已切换到 ${leaderWeekFilter}`);
+});
 
 $("employeeLoginBtn").addEventListener("click", () => $("employeeModal").classList.remove("hidden"));
 $("cancelEmployee").addEventListener("click", () => $("employeeModal").classList.add("hidden"));

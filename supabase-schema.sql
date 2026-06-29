@@ -1,4 +1,4 @@
-create extension if not exists pgcrypto;
+create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists public.app_settings (
   key text primary key,
@@ -23,6 +23,12 @@ alter table public.members
 
 alter table public.members
   add column if not exists bg_color text default '#f6f7fb';
+
+alter table public.members
+  add column if not exists nickname text;
+
+alter table public.members
+  add column if not exists leader_remark text;
 
 create table if not exists public.employee_accounts (
   id bigserial primary key,
@@ -88,6 +94,13 @@ create table if not exists public.point_awards (
 alter table public.point_awards
   drop constraint if exists point_awards_points_check;
 
+create table if not exists public.suggestions (
+  id bigserial primary key,
+  member_id bigint not null references public.members(id) on delete cascade,
+  message text not null,
+  created_at timestamptz not null default now()
+);
+
 insert into public.leader_plans (week, title, details)
 select to_char(now(), 'IYYY-"W"IW'), '本周团队计划',
        '1. 明确本周关键目标
@@ -104,6 +117,7 @@ alter table public.member_plans enable row level security;
 alter table public.checkins enable row level security;
 alter table public.dedicated_tasks enable row level security;
 alter table public.point_awards enable row level security;
+alter table public.suggestions enable row level security;
 
 drop policy if exists "Public can read members" on public.members;
 create policy "Public can read members"
@@ -173,6 +187,16 @@ create policy "Public can read point awards"
 on public.point_awards for select
 using (true);
 
+drop policy if exists "Public can read suggestions" on public.suggestions;
+create policy "Public can read suggestions"
+on public.suggestions for select
+using (true);
+
+drop policy if exists "Public can insert suggestions" on public.suggestions;
+create policy "Public can insert suggestions"
+on public.suggestions for insert
+with check (true);
+
 create or replace function public.is_leader(p_code text)
 returns boolean
 language sql
@@ -186,19 +210,26 @@ as $$
   );
 $$;
 
+drop function if exists public.employee_login(text, text);
+drop function if exists public.leader_accounts(text);
+drop function if exists public.leader_create_member_account(text, text, text, text);
+drop function if exists public.leader_update_member_account(text, bigint, text, text, text, text);
+drop function if exists public.member_update_profile(bigint, text, text, text);
+drop function if exists public.leader_update_plan(text, bigint, text, text, text);
+
 create or replace function public.employee_login(p_username text, p_password text)
-returns table(id bigint, name text, username text, avatar_data text, bg_color text)
+returns table(id bigint, name text, username text, nickname text, avatar_data text, bg_color text)
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
   return query
-  select m.id, m.name, a.username, m.avatar_data, m.bg_color
+  select m.id, m.name, a.username, m.nickname, m.avatar_data, m.bg_color
   from public.employee_accounts a
   join public.members m on m.id = a.member_id
   where a.username = lower(trim(p_username))
-    and a.password_hash = crypt(p_password, a.password_hash);
+    and a.password_hash = extensions.crypt(p_password, a.password_hash);
 
   if not found then
     raise exception '账户名或密码不正确';
@@ -222,10 +253,10 @@ begin
   end if;
 
   update public.employee_accounts
-  set password_hash = crypt(p_new_password, gen_salt('bf')),
+  set password_hash = extensions.crypt(p_new_password, extensions.gen_salt('bf')),
       password_plain = p_new_password
-  where member_id = p_member_id
-    and password_hash = crypt(p_old_password, password_hash);
+  where public.employee_accounts.member_id = p_member_id
+    and public.employee_accounts.password_hash = extensions.crypt(p_old_password, public.employee_accounts.password_hash);
 
   if not found then
     raise exception '原密码不正确';
@@ -234,7 +265,7 @@ end;
 $$;
 
 create or replace function public.leader_accounts(p_code text)
-returns table(member_id bigint, name text, username text, password_plain text, avatar_data text, bg_color text)
+returns table(member_id bigint, name text, username text, password_plain text, avatar_data text, bg_color text, nickname text, leader_remark text)
 language plpgsql
 security definer
 set search_path = public
@@ -245,7 +276,7 @@ begin
   end if;
 
   return query
-  select m.id, m.name, a.username, a.password_plain, m.avatar_data, m.bg_color
+  select m.id, m.name, a.username, a.password_plain, m.avatar_data, m.bg_color, m.nickname, m.leader_remark
   from public.members m
   left join public.employee_accounts a on a.member_id = m.id
   order by m.name;
@@ -258,7 +289,7 @@ create or replace function public.leader_create_member_account(
   p_username text,
   p_password text
 )
-returns table(member_id bigint, name text, username text, password_plain text, avatar_data text, bg_color text)
+returns table(member_id bigint, name text, username text, password_plain text, avatar_data text, bg_color text, nickname text, leader_remark text)
 language plpgsql
 security definer
 set search_path = public
@@ -282,21 +313,100 @@ begin
 
   insert into public.members (name, username)
   values (trim(p_name), v_username)
-  on conflict (name) do update set username = excluded.username
+  on conflict on constraint members_name_key do update set username = excluded.username
   returning public.members.id into v_member_id;
 
   insert into public.employee_accounts (member_id, username, password_hash, password_plain)
-  values (v_member_id, v_username, crypt(p_password, gen_salt('bf')), p_password)
-  on conflict (member_id) do update
+  values (v_member_id, v_username, extensions.crypt(p_password, extensions.gen_salt('bf')), p_password)
+  on conflict on constraint employee_accounts_member_id_key do update
     set username = excluded.username,
         password_hash = excluded.password_hash,
         password_plain = excluded.password_plain;
 
   return query
-  select m.id, m.name, a.username, a.password_plain, m.avatar_data, m.bg_color
+  select m.id, m.name, a.username, a.password_plain, m.avatar_data, m.bg_color, m.nickname, m.leader_remark
   from public.members m
   join public.employee_accounts a on a.member_id = m.id
   where m.id = v_member_id;
+end;
+$$;
+
+create or replace function public.leader_update_member_account(
+  p_code text,
+  p_member_id bigint,
+  p_name text,
+  p_username text,
+  p_password text,
+  p_leader_remark text
+)
+returns table(member_id bigint, name text, username text, password_plain text, avatar_data text, bg_color text, nickname text, leader_remark text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_username text := lower(trim(p_username));
+begin
+  if not public.is_leader(p_code) then
+    raise exception 'leader password is incorrect';
+  end if;
+  if length(trim(coalesce(p_name, ''))) < 1 then
+    raise exception 'employee name cannot be empty';
+  end if;
+  if length(v_username) < 3 then
+    raise exception 'username must be at least 3 characters';
+  end if;
+
+  update public.members as m
+  set name = trim(p_name),
+      username = v_username,
+      leader_remark = coalesce(trim(p_leader_remark), '')
+  where m.id = p_member_id;
+
+  if not found then
+    raise exception 'member not found';
+  end if;
+
+  update public.employee_accounts as a
+  set username = v_username
+  where a.member_id = p_member_id;
+
+  if length(coalesce(p_password, '')) > 0 then
+    if length(p_password) < 4 then
+      raise exception 'password must be at least 4 characters';
+    end if;
+
+    update public.employee_accounts as a
+    set password_hash = extensions.crypt(p_password, extensions.gen_salt('bf')),
+        password_plain = p_password
+    where a.member_id = p_member_id;
+  end if;
+
+  return query
+  select m.id, m.name, a.username, a.password_plain, m.avatar_data, m.bg_color, m.nickname, m.leader_remark
+  from public.members m
+  left join public.employee_accounts a on a.member_id = m.id
+  where m.id = p_member_id;
+end;
+$$;
+
+create or replace function public.member_update_profile(
+  p_member_id bigint,
+  p_nickname text,
+  p_avatar_data text,
+  p_bg_color text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.members as m
+  set nickname = nullif(trim(coalesce(p_nickname, '')), ''),
+      avatar_data = coalesce(p_avatar_data, m.avatar_data),
+      bg_color = coalesce(p_bg_color, m.bg_color)
+  where m.id = p_member_id;
 end;
 $$;
 
@@ -321,6 +431,40 @@ begin
   insert into public.leader_plans (week, title, details)
   values (trim(p_week), trim(p_title), trim(p_details))
   returning * into result;
+
+  return result;
+end;
+$$;
+
+create or replace function public.leader_update_plan(
+  p_code text,
+  p_plan_id bigint,
+  p_week text,
+  p_title text,
+  p_details text
+)
+returns public.leader_plans
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  result public.leader_plans;
+begin
+  if not public.is_leader(p_code) then
+    raise exception 'leader password is incorrect';
+  end if;
+
+  update public.leader_plans as lp
+  set week = trim(p_week),
+      title = trim(p_title),
+      details = trim(p_details)
+  where lp.id = p_plan_id
+  returning * into result;
+
+  if result.id is null then
+    raise exception 'plan not found';
+  end if;
 
   return result;
 end;

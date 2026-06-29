@@ -95,7 +95,7 @@ h2 { font-size: 18px; margin-bottom: 12px; }
 
 .profile-settings {
   display: grid;
-  grid-template-columns: 130px minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(160px, 1fr) 130px minmax(220px, 1fr) auto;
   gap: 10px;
   align-items: end;
 }
@@ -256,6 +256,30 @@ button {
   gap: 8px;
 }
 
+.query-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.account-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.account-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.small-avatar {
+  width: 48px;
+  height: 48px;
+}
+
 .leaderView .panel input,
 .leaderView .panel textarea,
 #leaderView .panel input,
@@ -329,8 +353,13 @@ button {
   .reward-row {
     grid-template-columns: 1fr;
   }
-  .profile-settings {
+  .profile-settings,
+  .query-row,
+  .account-item {
     grid-template-columns: 1fr;
+  }
+  .account-actions {
+    flex-wrap: wrap;
   }
   .actions, .button-row {
     flex-wrap: wrap;

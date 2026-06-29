@@ -1,31 +1,58 @@
-# 团队周计划在线版部署说明
+# 探哆哆公司团队周计划：在线版说明
 
 这个文件夹是 `GitHub Pages + Supabase` 在线版。
 
-## 你要做的事
+## 这次更新后你要做什么
 
-### 1. 在 Supabase 创建数据表
+1. 先去 Supabase 重新执行一次 `supabase-schema.sql`
+2. 再把下面这些文件重新上传到 GitHub 仓库：
+   - `index.html`
+   - `styles.css`
+   - `app.js`
+   - `config.js`
+   - `supabase-schema.sql`
+   - `README_SETUP.md`
+
+这次新增了昵称、Leader 私有备注、成员建议、按周查询和修改计划，所以 Supabase SQL 必须先更新。
+
+## Supabase 更新步骤
 
 1. 打开 Supabase 项目
 2. 左侧进入 `SQL Editor`
 3. 新建查询
-4. 复制 `supabase-schema.sql` 里的全部内容
-5. 把第一行的默认 leader 密码改掉：
+4. 复制 `supabase-schema.sql` 的全部内容
+5. 粘贴进去，点击 `Run`
 
-```sql
-insert into public.app_settings (key, value)
-values ('leader_code', '123456')
-```
+如果你之前已经设置过 leader 密码，重新执行 SQL 一般不会覆盖它。
 
-把 `123456` 改成你自己的 leader 密码。
+## GitHub 上传步骤
 
-6. 点击 `Run`
+1. 打开 GitHub 仓库
+2. 进入你网页文件所在的位置，通常是仓库首页的根目录
+3. 点击 `Add file`
+4. 点击 `Upload files`
+5. 把本文件夹里的文件拖进去
+6. 如果 GitHub 提示同名文件已存在，选择覆盖/更新即可
+7. 页面底部点击绿色按钮 `Commit changes`
+8. 等 1-3 分钟后刷新 GitHub Pages 网页
 
-如果你之前已经执行过旧版 SQL，也可以直接把新版 `supabase-schema.sql` 再执行一次。它会自动补充成员账号、专属任务、积分加减等新功能。
+## 当前功能
 
-### 2. 填写 Supabase 配置
+- 成员账号只能由 Leader 创建
+- 成员可以修改密码、昵称、头像和网页背景色
+- 成员端不会显示 Leader 私有备注
+- 成员可以提交本周 Todo，完成每条计划获得 1 分
+- 成员可以响应 Leader 本周计划，打卡随机获得 0-5 分
+- 成员可以给公司提建议，Leader 后台可查看
+- Leader 可以发布全员计划，也可以修改已发布计划
+- Leader 可以按周查询成员计划、打卡、专属任务和进度
+- Leader 可以新增、修改、删除成员账号
+- Leader 可以给成员分配专属任务
+- Leader 可以增加或减少成员积分
 
-打开 `config.js`，把里面两项换成你的 Supabase 信息：
+## Supabase 配置位置
+
+`config.js` 里需要填写：
 
 ```js
 window.TEAM_WIDGET_CONFIG = {
@@ -34,63 +61,11 @@ window.TEAM_WIDGET_CONFIG = {
 };
 ```
 
-位置：
+Supabase 后台位置：
 
-Supabase 项目里进入 `Project Settings` -> `API`。
+`Project Settings` -> `API`
 
-你需要复制：
+复制：
 
 - `Project URL`
 - `anon public`
-
-### 3. 上传到 GitHub
-
-把这个文件夹里的这些文件上传到 GitHub 仓库：
-
-- `index.html`
-- `styles.css`
-- `app.js`
-- `config.js`
-- `supabase-schema.sql`
-
-### 4. 打开 GitHub Pages
-
-1. 进入 GitHub 仓库
-2. 点击 `Settings`
-3. 点击 `Pages`
-4. Source 选择 `Deploy from a branch`
-5. Branch 选择 `main`
-6. Folder 选择 `/root`
-7. 保存
-
-等 1-3 分钟，GitHub 会给你一个网址。
-
-## 使用方式
-
-- 成员打开 GitHub Pages 网址即可使用
-- Leader 点击右上角 `Leader 登录`
-- 输入你在 Supabase SQL 里设置的 leader 密码
-- Leader 可以添加成员、发布计划、看进度
-
-## 新版功能
-
-- 页面标题：探哆哆公司团队周计划
-- 成员端改为 `成员登录`
-- 成员账号和初始密码只能由 Leader 创建
-- Leader 可以查看成员账号、密码和员工姓名备注
-- 成员登录状态会保存在当前浏览器
-- 成员后续可以自己修改密码
-- 成员可以自己调整网页背景色
-- 成员可以上传自己的头像
-- 设置完本周计划后会随机显示励志名言
-- 完成每条周计划获得 1 分
-- 响应打卡不再需要输入进度，点击即可随机获得 0-5 分
-- Leader 可以给指定成员发布专属任务
-- Leader 后台可以查看成员计划、积分、打卡完成进度
-- Leader 可以给指定成员增加或减少积分
-
-## 注意
-
-这是团队内部轻量版。成员提交、打卡、完成 Todo 不需要登录，方便使用。
-
-Leader 的管理操作通过 Supabase 数据库函数校验 leader 密码，不会把管理权限完全暴露在网页里。
