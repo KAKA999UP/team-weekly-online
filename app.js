@@ -161,6 +161,8 @@ async function loadLeaderAccounts() {
 function renderEmployee() {
   const member = activeMember();
   if (currentEmployee) {
+    $("memberLeaderPlanPanel").classList.remove("hidden");
+    $("memberRankingPanel").classList.remove("hidden");
     $("currentEmployee").textContent = memberDisplayName(member);
     $("currentEmployeeMeta").textContent = `用户名：${memberUsername(member)}　员工名：${member?.name || currentEmployee.name || "未设置"}`;
     $("logoutBtn").classList.remove("hidden");
@@ -172,6 +174,8 @@ function renderEmployee() {
     $("bgColorInput").value = member?.bg_color || "#f6f7fb";
     applyMemberBackground(member);
   } else {
+    $("memberLeaderPlanPanel").classList.add("hidden");
+    $("memberRankingPanel").classList.add("hidden");
     $("currentEmployee").textContent = "未登录";
     $("currentEmployeeMeta").textContent = "成员账号由 Leader 创建。登录后可提交计划、完成任务和打卡。";
     $("logoutBtn").classList.add("hidden");
