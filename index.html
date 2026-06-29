@@ -75,7 +75,7 @@
             <button id="showPlanBtn">显示计划</button>
           </div>
           <div id="planEditor" class="editor hidden">
-            <p class="hint">一行一个 Todo，系统会自动整理成 1、2、3 的计划清单。</p>
+            <p class="hint">一行一个 Todo，最多 5 条，系统会自动整理成 1、2、3 的计划清单。</p>
             <textarea id="todoInput">1. </textarea>
             <button id="submitTodos" class="primary">提交计划</button>
           </div>
@@ -101,9 +101,17 @@
             <span>提交后 Leader 可以在后台查看</span>
           </div>
           <textarea id="suggestionText" placeholder="写下你的建议、想法或需要 Leader 关注的问题"></textarea>
-          <div class="button-row">
-            <button id="submitSuggestion" class="primary">提交建议</button>
+            <div class="button-row">
+              <button id="submitSuggestion" class="primary">提交建议</button>
+            </div>
+        </section>
+
+        <section class="panel rank-panel">
+          <div class="panel-title">
+            <h2>成员积分排名</h2>
+            <span>一起冲榜，轻松一点也很厉害</span>
           </div>
+          <div id="memberRanking" class="ranking-list"></div>
         </section>
       </section>
 
@@ -131,6 +139,7 @@
             <div class="button-row">
               <button id="publishPlan" class="primary">发布新计划</button>
               <button id="updatePlan">保存修改</button>
+              <button id="deletePlan" class="danger">删除选中计划</button>
             </div>
           </section>
 

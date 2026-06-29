@@ -97,9 +97,23 @@ alter table public.point_awards
 create table if not exists public.suggestions (
   id bigserial primary key,
   member_id bigint not null references public.members(id) on delete cascade,
+  week text not null default to_char(now(), 'IYYY-"W"IW'),
   message text not null,
   created_at timestamptz not null default now()
 );
+
+alter table public.suggestions
+  add column if not exists week text;
+
+update public.suggestions
+set week = to_char(created_at, 'IYYY-"W"IW')
+where week is null;
+
+alter table public.suggestions
+  alter column week set not null;
+
+alter table public.suggestions
+  alter column week set default to_char(now(), 'IYYY-"W"IW');
 
 insert into public.leader_plans (week, title, details)
 select to_char(now(), 'IYYY-"W"IW'), '本周团队计划',
@@ -216,6 +230,7 @@ drop function if exists public.leader_create_member_account(text, text, text, te
 drop function if exists public.leader_update_member_account(text, bigint, text, text, text, text);
 drop function if exists public.member_update_profile(bigint, text, text, text);
 drop function if exists public.leader_update_plan(text, bigint, text, text, text);
+drop function if exists public.leader_delete_plan(text, bigint);
 
 create or replace function public.employee_login(p_username text, p_password text)
 returns table(id bigint, name text, username text, nickname text, avatar_data text, bg_color text)
@@ -467,6 +482,26 @@ begin
   end if;
 
   return result;
+end;
+$$;
+
+create or replace function public.leader_delete_plan(p_code text, p_plan_id bigint)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_leader(p_code) then
+    raise exception 'leader password is incorrect';
+  end if;
+
+  delete from public.leader_plans as lp
+  where lp.id = p_plan_id;
+
+  if not found then
+    raise exception 'plan not found';
+  end if;
 end;
 $$;
 

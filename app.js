@@ -33,9 +33,12 @@ const quotes = [
 
 function currentWeek() {
   const d = new Date();
-  const oneJan = new Date(d.getFullYear(), 0, 1);
-  const week = Math.ceil((((d - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
-  return `${d.getFullYear()}-W${String(week).padStart(2, "0")}`;
+  const sunday = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  sunday.setDate(sunday.getDate() - sunday.getDay());
+  const firstSunday = new Date(sunday.getFullYear(), 0, 1);
+  firstSunday.setDate(firstSunday.getDate() - firstSunday.getDay());
+  const week = Math.floor((sunday - firstSunday) / 604800000) + 1;
+  return `${sunday.getFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
 function escapeHtml(value) {
@@ -300,7 +303,8 @@ function renderLeaderProgress() {
 }
 
 function renderSuggestions() {
-  $("suggestionList").innerHTML = state.suggestions
+  const suggestions = state.suggestions.filter((item) => (item.week || currentWeek()) === leaderWeekFilter);
+  $("suggestionList").innerHTML = suggestions
     .map((item) => {
       const member = memberById(item.member_id);
       const time = new Date(item.created_at).toLocaleString("zh-CN");
@@ -312,7 +316,28 @@ function renderSuggestions() {
         </article>
       `;
     })
-    .join("") || `<div class="item meta">暂无成员建议。</div>`;
+    .join("") || `<div class="item meta">这一周暂无成员建议。</div>`;
+}
+
+function renderRanking() {
+  const ranked = [...state.members]
+    .map((member) => ({ member, points: memberPoints(member.id) }))
+    .sort((a, b) => b.points - a.points)
+    .slice(0, 8);
+
+  $("memberRanking").innerHTML = ranked
+    .map((row, index) => `
+      <article class="rank-card rank-${index + 1}">
+        <div class="rank-badge">${index + 1}</div>
+        <img class="avatar" src="${avatarFor(row.member)}" alt="头像" />
+        <div>
+          <strong>${escapeHtml(memberDisplayName(row.member))}</strong>
+          <div class="meta">用户名：${escapeHtml(row.member.username || "未设置")}</div>
+        </div>
+        <div class="rank-points">${row.points}<span>分</span></div>
+      </article>
+    `)
+    .join("") || `<div class="item meta">暂无成员积分。</div>`;
 }
 
 function renderLeader() {
@@ -335,6 +360,7 @@ function render() {
   renderLeaderPlans();
   renderDedicatedTasks();
   renderLeader();
+  renderRanking();
 }
 
 async function submitTodos() {
@@ -342,6 +368,7 @@ async function submitTodos() {
   if (!member) return toast("请先登录成员账号。");
   const todos = parseTodos($("todoInput").value);
   if (!todos.length) return toast("请至少填写一条 Todo。");
+  if (todos.length > 5) return toast("我的本周计划最多设置 5 条，请精简一下。");
   const oldPlans = state.memberPlans.filter((p) => Number(p.member_id) === Number(member.id) && p.week === currentWeek());
   if (editorMode === "edit") {
     await Promise.all(oldPlans.map((p) => supabase.from("member_plans").delete().eq("id", p.id)));
@@ -447,6 +474,23 @@ async function updatePlan() {
   if (error) return toast(error.message);
   await loadAll();
   toast("计划已修改。");
+}
+
+async function deletePlan() {
+  const planId = Number($("planSelect").value);
+  if (!planId) return toast("请选择要删除的计划。");
+  const plan = state.leaderPlans.find((p) => Number(p.id) === planId);
+  const ok = confirm(`确定删除“${plan?.title || "选中计划"}”吗？相关成员打卡也会一起删除。`);
+  if (!ok) return;
+  const { error } = await supabase.rpc("leader_delete_plan", {
+    p_code: leaderCode,
+    p_plan_id: planId,
+  });
+  if (error) return toast(error.message);
+  $("leaderTitle").value = "";
+  $("leaderDetails").value = "";
+  await loadAll();
+  toast("计划已删除。");
 }
 
 async function createAccount() {
@@ -603,6 +647,7 @@ async function submitSuggestion() {
   if (!message) return toast("请先填写建议内容。");
   const { error } = await supabase.from("suggestions").insert({
     member_id: Number(member.id),
+    week: currentWeek(),
     message,
   });
   if (error) return toast(error.message);
@@ -666,6 +711,7 @@ $("submitSuggestion").addEventListener("click", submitSuggestion);
 $("publishPlan").addEventListener("click", publishPlan);
 $("loadPlanForEdit").addEventListener("click", loadPlanForEdit);
 $("updatePlan").addEventListener("click", updatePlan);
+$("deletePlan").addEventListener("click", deletePlan);
 $("createAccount").addEventListener("click", createAccount);
 $("assignTask").addEventListener("click", assignTask);
 $("giveReward").addEventListener("click", adjustPoints);
