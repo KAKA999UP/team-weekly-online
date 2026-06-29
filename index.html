@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>团队周计划</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Team Weekly Online</p>
+          <h1>团队周计划</h1>
+        </div>
+        <div class="actions">
+          <span id="weekLabel" class="pill">本周</span>
+          <button id="leaderLoginBtn" class="ghost">Leader 登录</button>
+          <button id="memberViewBtn" class="ghost hidden">返回成员端</button>
+        </div>
+      </header>
+
+      <section id="memberView" class="view active">
+        <section class="panel member-head">
+          <label>
+            <span>选择你的名字</span>
+            <select id="memberSelect"></select>
+          </label>
+          <div class="score">
+            <span>我的积分</span>
+            <strong id="myPoints">0</strong>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>我的本周计划</h2>
+            <span id="completionText">0%</span>
+          </div>
+          <div class="progress"><span id="completionBar"></span></div>
+          <div id="myPlans" class="todo-list"></div>
+          <div class="button-row">
+            <button id="addPlanBtn">新增计划</button>
+            <button id="editPlanBtn">修改计划</button>
+            <button id="showPlanBtn">显示计划</button>
+          </div>
+          <div id="planEditor" class="editor hidden">
+            <p class="hint">一行一个 Todo，回车继续写下一条。</p>
+            <textarea id="todoInput">1. </textarea>
+            <button id="submitTodos" class="primary">提交计划</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Leader 本周计划</h2>
+          </div>
+          <div id="leaderPlans" class="list"></div>
+        </section>
+      </section>
+
+      <section id="leaderView" class="view">
+        <section class="grid">
+          <section class="panel">
+            <h2>发布计划</h2>
+            <input id="leaderTitle" placeholder="计划标题" />
+            <textarea id="leaderDetails" placeholder="计划内容"></textarea>
+            <button id="publishPlan" class="primary">发布</button>
+          </section>
+
+          <section class="panel">
+            <h2>成员名单</h2>
+            <div class="inline">
+              <input id="newMemberName" placeholder="成员姓名" />
+              <button id="addMember" class="primary">添加</button>
+            </div>
+            <div id="memberList" class="list"></div>
+          </section>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>全员进度</h2>
+          </div>
+          <div id="progressBoard" class="progress-board"></div>
+        </section>
+      </section>
+    </main>
+
+    <div id="loginModal" class="modal hidden">
+      <div class="modal-card">
+        <h2>Leader 登录</h2>
+        <input id="leaderCode" type="password" placeholder="请输入 leader 密码" />
+        <div class="button-row">
+          <button id="confirmLogin" class="primary">进入</button>
+          <button id="cancelLogin">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="./config.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
