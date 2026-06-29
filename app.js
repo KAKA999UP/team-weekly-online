@@ -9,11 +9,13 @@ let state = {
   memberPlans: [],
   checkins: [],
   awards: [],
+  dedicatedTasks: [],
+  accounts: [],
 };
 let currentEmployee = JSON.parse(localStorage.getItem("tddCurrentEmployee") || "null");
 let leaderCode = sessionStorage.getItem("teamWeeklyLeaderCode") || "";
 let editorMode = "add";
-let employeeMode = "login";
+let pendingAvatarData = "";
 
 const $ = (id) => document.getElementById(id);
 
@@ -50,12 +52,8 @@ function toast(message) {
   toast.timer = setTimeout(() => $("toast").classList.remove("show"), 2600);
 }
 
-function randomQuote() {
-  return quotes[Math.floor(Math.random() * quotes.length)];
-}
-
 function showQuote() {
-  $("quoteBox").textContent = randomQuote();
+  $("quoteBox").textContent = quotes[Math.floor(Math.random() * quotes.length)];
   $("quoteBox").classList.remove("hidden");
 }
 
@@ -71,6 +69,15 @@ function activeMember() {
   return state.members.find((m) => Number(m.id) === Number(currentEmployee.id)) || currentEmployee;
 }
 
+function avatarFor(member) {
+  return member?.avatar_data || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' rx='60' fill='%23eef2ff'/%3E%3Ctext x='60' y='70' text-anchor='middle' font-size='46' fill='%232563eb' font-family='Arial'%3E%F0%9F%91%A4%3C/text%3E%3C/svg%3E";
+}
+
+function applyMemberBackground(member) {
+  const color = member?.bg_color || "#f6f7fb";
+  document.documentElement.style.setProperty("--bg", color);
+}
+
 function memberPoints(memberId) {
   const plans = state.memberPlans.filter((p) => Number(p.member_id) === Number(memberId));
   const checkins = state.checkins.filter((c) => Number(c.member_id) === Number(memberId));
@@ -81,14 +88,15 @@ function memberPoints(memberId) {
 }
 
 async function loadAll() {
-  const [members, leaderPlans, memberPlans, checkins, awards] = await Promise.all([
-    supabase.from("members").select("id,name,username,created_at").order("name"),
+  const [members, leaderPlans, memberPlans, checkins, awards, dedicatedTasks] = await Promise.all([
+    supabase.from("members").select("id,name,username,avatar_data,bg_color,created_at").order("name"),
     supabase.from("leader_plans").select("*").order("created_at", { ascending: false }),
     supabase.from("member_plans").select("*").order("created_at", { ascending: true }),
     supabase.from("checkins").select("*").order("created_at", { ascending: false }),
     supabase.from("point_awards").select("*").order("created_at", { ascending: false }),
+    supabase.from("dedicated_tasks").select("*").order("created_at", { ascending: true }),
   ]);
-  for (const result of [members, leaderPlans, memberPlans, checkins, awards]) {
+  for (const result of [members, leaderPlans, memberPlans, checkins, awards, dedicatedTasks]) {
     if (result.error) throw result.error;
   }
   state.members = members.data || [];
@@ -96,18 +104,35 @@ async function loadAll() {
   state.memberPlans = memberPlans.data || [];
   state.checkins = checkins.data || [];
   state.awards = awards.data || [];
+  state.dedicatedTasks = dedicatedTasks.data || [];
+  if (leaderCode) await loadLeaderAccounts();
   render();
 }
 
+async function loadLeaderAccounts() {
+  const { data, error } = await supabase.rpc("leader_accounts", { p_code: leaderCode });
+  if (!error) state.accounts = data || [];
+}
+
 function renderEmployee() {
+  const member = activeMember();
   if (currentEmployee) {
-    $("currentEmployee").textContent = `${currentEmployee.name}（${currentEmployee.username || "员工"}）`;
+    $("currentEmployee").textContent = `${member?.name || currentEmployee.name}（${member?.username || currentEmployee.username || "成员"}）`;
     $("logoutBtn").classList.remove("hidden");
-    $("employeeLoginBtn").textContent = "切换员工";
+    $("changePasswordBtn").classList.remove("hidden");
+    $("profilePanel").classList.remove("hidden");
+    $("employeeLoginBtn").textContent = "切换成员";
+    $("avatarPreview").src = avatarFor(member);
+    $("bgColorInput").value = member?.bg_color || "#f6f7fb";
+    applyMemberBackground(member);
   } else {
     $("currentEmployee").textContent = "未登录";
     $("logoutBtn").classList.add("hidden");
-    $("employeeLoginBtn").textContent = "员工登记/登录";
+    $("changePasswordBtn").classList.add("hidden");
+    $("profilePanel").classList.add("hidden");
+    $("employeeLoginBtn").textContent = "成员登录";
+    $("avatarPreview").src = avatarFor(null);
+    applyMemberBackground(null);
   }
 }
 
@@ -122,11 +147,11 @@ function renderMyPlans() {
   $("myPoints").textContent = member ? memberPoints(member.id) : 0;
 
   if (!member) {
-    $("myPlans").innerHTML = `<div class="item meta">请先点击“员工登记/登录”。</div>`;
+    $("myPlans").innerHTML = `<div class="item meta">请先点击“成员登录”。</div>`;
     return;
   }
   if (!plans.length) {
-    $("myPlans").innerHTML = `<div class="item meta">本周还没有计划。</div>`;
+    $("myPlans").innerHTML = `<div class="item meta">本周还没有自己设置的计划。</div>`;
     return;
   }
   $("myPlans").innerHTML = plans
@@ -162,7 +187,7 @@ function renderLeaderPlans() {
           <p>${escapeHtml(plan.details).replaceAll("\n", "<br>")}</p>
           ${
             checked
-              ? `<div class="meta">已响应 · +${checked.points}</div>`
+              ? `<div class="meta">已打卡 · +${checked.points}</div>`
               : `<button class="primary" data-checkin="${plan.id}">响应打卡</button>`
           }
         </article>
@@ -171,21 +196,47 @@ function renderLeaderPlans() {
     .join("");
 }
 
+function renderDedicatedTasks() {
+  const member = activeMember();
+  if (!member) {
+    $("dedicatedTasks").innerHTML = `<div class="item meta">登录后可查看 Leader 给你的专属任务。</div>`;
+    return;
+  }
+  const tasks = state.dedicatedTasks.filter((t) => Number(t.member_id) === Number(member.id) && t.week === currentWeek());
+  if (!tasks.length) {
+    $("dedicatedTasks").innerHTML = `<div class="item meta">暂无专属任务。</div>`;
+    return;
+  }
+  $("dedicatedTasks").innerHTML = tasks.map((task) => `
+    <article class="item todo-item ${task.completed ? "done" : ""}">
+      <div>
+        <strong>${escapeHtml(task.title)}</strong>
+        <div class="meta">${escapeHtml(task.details || "")}</div>
+      </div>
+      <button class="${task.completed ? "" : "primary"}" data-task-complete="${task.id}">
+        ${task.completed ? "撤回" : "完成"}
+      </button>
+    </article>
+  `).join("");
+}
+
 function renderLeader() {
-  $("rewardMember").innerHTML = state.members
+  const memberOptions = state.members
     .map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`)
     .join("");
+  $("rewardMember").innerHTML = memberOptions;
+  $("taskMember").innerHTML = memberOptions;
 
-  $("memberList").innerHTML = state.members
+  $("accountList").innerHTML = state.accounts
     .map(
-      (m) => `
+      (a) => `
       <article class="item">
-        <strong>${escapeHtml(m.name)}</strong>
-        <div class="meta">账户：${escapeHtml(m.username || "未设置")} · 总积分：${memberPoints(m.id)}</div>
+        <strong>${escapeHtml(a.name)}</strong>
+        <div class="meta">账号：${escapeHtml(a.username || "未设置")} · 密码：${escapeHtml(a.password_plain || "未设置")} · 总积分：${memberPoints(a.member_id)}</div>
       </article>
     `
     )
-    .join("") || `<div class="item meta">暂无员工。</div>`;
+    .join("") || `<div class="item meta">暂无成员账号。</div>`;
 
   $("progressBoard").innerHTML = state.members
     .map((member) => {
@@ -193,14 +244,20 @@ function renderLeader() {
       const done = plans.filter((p) => p.completed).length;
       const pct = plans.length ? Math.round((done / plans.length) * 100) : 0;
       const checkins = state.checkins.filter((c) => Number(c.member_id) === Number(member.id));
-      const awards = state.awards.filter((a) => Number(a.member_id) === Number(member.id));
+      const tasks = state.dedicatedTasks.filter((t) => Number(t.member_id) === Number(member.id) && t.week === currentWeek());
+      const taskDone = tasks.filter((t) => t.completed).length;
       return `
         <article class="item">
-          <strong>${escapeHtml(member.name)}</strong>
-          <div class="meta">计划 ${done}/${plans.length} · ${pct}% · 打卡 ${checkins.length} 次 · 总积分 ${memberPoints(member.id)}</div>
+          <div class="profile-row">
+            <img class="avatar" src="${avatarFor(member)}" alt="头像" />
+            <div>
+              <strong>${escapeHtml(member.name)}</strong>
+              <div class="meta">自定计划 ${done}/${plans.length} · ${pct}% · 打卡 ${checkins.length} 次 · 专属任务 ${taskDone}/${tasks.length} · 总积分 ${memberPoints(member.id)}</div>
+            </div>
+          </div>
           <div class="progress"><span style="width:${pct}%"></span></div>
-          <div class="meta">最近奖励：${awards[0] ? `+${awards[0].points} ${escapeHtml(awards[0].reason)}` : "暂无"}</div>
-          <div class="meta">本周计划：${plans.map((p) => `${p.completed ? "✓" : "□"} ${escapeHtml(p.title)}`).join("；") || "暂无"}</div>
+          <div class="meta">成员计划：${plans.map((p) => `${p.completed ? "✓" : "□"} ${escapeHtml(p.title)}`).join("；") || "暂无"}</div>
+          <div class="meta">专属任务：${tasks.map((t) => `${t.completed ? "✓" : "□"} ${escapeHtml(t.title)}`).join("；") || "暂无"}</div>
         </article>
       `;
     })
@@ -212,12 +269,13 @@ function render() {
   renderEmployee();
   renderMyPlans();
   renderLeaderPlans();
+  renderDedicatedTasks();
   renderLeader();
 }
 
 async function submitTodos() {
   const member = activeMember();
-  if (!member) return toast("请先登记/登录员工账号。");
+  if (!member) return toast("请先登录成员账号。");
   const todos = parseTodos($("todoInput").value);
   if (!todos.length) return toast("请至少填写一条 Todo。");
   const oldPlans = state.memberPlans.filter((p) => Number(p.member_id) === Number(member.id) && p.week === currentWeek());
@@ -258,21 +316,30 @@ async function completePlan(id) {
   await loadAll();
 }
 
+async function completeDedicatedTask(id) {
+  const task = state.dedicatedTasks.find((t) => Number(t.id) === Number(id));
+  if (!task) return;
+  const { error } = await supabase.from("dedicated_tasks").update({
+    completed: !task.completed,
+    completed_at: task.completed ? null : new Date().toISOString(),
+  }).eq("id", task.id);
+  if (error) return toast(error.message);
+  await loadAll();
+}
+
 async function checkin(planId) {
   const member = activeMember();
-  if (!member) return toast("请先登记/登录员工账号。");
-  const note = prompt("写下你的响应/进度：");
-  if (!note) return;
+  if (!member) return toast("请先登录成员账号。");
   const points = Math.floor(Math.random() * 6);
   const { error } = await supabase.from("checkins").insert({
     member_id: member.id,
     leader_plan_id: Number(planId),
-    note,
+    note: "已响应打卡",
     points,
   });
   if (error) return toast(error.message);
   await loadAll();
-  toast(`响应成功，随机获得 ${points} 分。`);
+  toast(`打卡成功，随机获得 ${points} 分。`);
 }
 
 async function publishPlan() {
@@ -292,12 +359,49 @@ async function publishPlan() {
   toast("计划已发布。");
 }
 
-async function giveReward() {
+async function createAccount() {
+  const name = $("newMemberName").value.trim();
+  const username = $("newUsername").value.trim();
+  const password = $("newPassword").value.trim();
+  const { error } = await supabase.rpc("leader_create_member_account", {
+    p_code: leaderCode,
+    p_name: name,
+    p_username: username,
+    p_password: password,
+  });
+  if (error) return toast(error.message);
+  $("newMemberName").value = "";
+  $("newUsername").value = "";
+  $("newPassword").value = "";
+  await loadAll();
+  toast("成员账号已创建/重置。");
+}
+
+async function assignTask() {
+  const memberId = Number($("taskMember").value);
+  const title = $("taskTitle").value.trim();
+  const details = $("taskDetails").value.trim();
+  if (!memberId || !title) return toast("请选择成员并填写任务标题。");
+  const { error } = await supabase.rpc("leader_create_dedicated_task", {
+    p_code: leaderCode,
+    p_member_id: memberId,
+    p_week: currentWeek(),
+    p_title: title,
+    p_details: details,
+  });
+  if (error) return toast(error.message);
+  $("taskTitle").value = "";
+  $("taskDetails").value = "";
+  await loadAll();
+  toast("专属任务已分配。");
+}
+
+async function adjustPoints() {
   const memberId = Number($("rewardMember").value);
   const points = Number($("rewardPoints").value);
-  const reason = $("rewardReason").value.trim() || "Leader 奖励";
-  if (!memberId || !points) return toast("请选择员工并填写积分。");
-  const { error } = await supabase.rpc("leader_award_points", {
+  const reason = $("rewardReason").value.trim() || "Leader 调整";
+  if (!memberId || !points) return toast("请选择成员并填写非 0 积分。");
+  const { error } = await supabase.rpc("leader_adjust_points", {
     p_code: leaderCode,
     p_member_id: memberId,
     p_points: points,
@@ -307,26 +411,7 @@ async function giveReward() {
   $("rewardPoints").value = "";
   $("rewardReason").value = "";
   await loadAll();
-  toast("奖励已发放。");
-}
-
-async function employeeRegister() {
-  const name = $("employeeName").value.trim();
-  const username = $("employeeUsername").value.trim();
-  const password = $("employeePassword").value;
-  const invite = $("inviteCode").value.trim();
-  const { data, error } = await supabase.rpc("employee_register", {
-    p_name: name,
-    p_username: username,
-    p_password: password,
-    p_invite_code: invite,
-  });
-  if (error) return toast(error.message);
-  currentEmployee = data[0];
-  localStorage.setItem("tddCurrentEmployee", JSON.stringify(currentEmployee));
-  $("employeeModal").classList.add("hidden");
-  await loadAll();
-  toast("登记成功，已保持登录。");
+  toast("积分已调整。");
 }
 
 async function employeeLogin() {
@@ -344,20 +429,69 @@ async function employeeLogin() {
   toast("登录成功。");
 }
 
-function setEmployeeMode(mode) {
-  employeeMode = mode;
-  $("loginModeBtn").classList.toggle("active", mode === "login");
-  $("registerModeBtn").classList.toggle("active", mode === "register");
-  $("employeeName").classList.toggle("hidden", mode === "login");
-  $("inviteCode").classList.toggle("hidden", mode === "login");
-  $("confirmEmployee").textContent = mode === "login" ? "登录" : "登记";
+function resizeAvatar(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("头像读取失败"));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error("头像格式不支持"));
+      image.onload = () => {
+        const size = 180;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        const side = Math.min(image.width, image.height);
+        const sx = (image.width - side) / 2;
+        const sy = (image.height - side) / 2;
+        ctx.drawImage(image, sx, sy, side, side, 0, 0, size, size);
+        resolve(canvas.toDataURL("image/jpeg", 0.78));
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function saveProfile() {
+  const member = activeMember();
+  if (!member) return toast("请先登录成员账号。");
+  const updates = {
+    bg_color: $("bgColorInput").value || "#f6f7fb",
+  };
+  if (pendingAvatarData) updates.avatar_data = pendingAvatarData;
+  const { error } = await supabase.from("members").update(updates).eq("id", member.id);
+  if (error) return toast(error.message);
+  pendingAvatarData = "";
+  await loadAll();
+  toast("页面设置已保存。");
+}
+
+async function changePassword() {
+  if (!currentEmployee) return toast("请先登录。");
+  const oldPassword = $("oldPassword").value;
+  const newPassword = $("newPasswordSelf").value;
+  const { error } = await supabase.rpc("employee_change_password", {
+    p_member_id: Number(currentEmployee.id),
+    p_old_password: oldPassword,
+    p_new_password: newPassword,
+  });
+  if (error) return toast(error.message);
+  $("oldPassword").value = "";
+  $("newPasswordSelf").value = "";
+  $("passwordModal").classList.add("hidden");
+  await loadAll();
+  toast("密码已修改。");
 }
 
 document.addEventListener("click", async (event) => {
   const completeId = event.target.dataset.complete;
   const checkinId = event.target.dataset.checkin;
+  const taskId = event.target.dataset.taskComplete;
   if (completeId) await completePlan(completeId);
   if (checkinId) await checkin(checkinId);
+  if (taskId) await completeDedicatedTask(taskId);
 });
 
 $("addPlanBtn").addEventListener("click", () => {
@@ -369,7 +503,7 @@ $("addPlanBtn").addEventListener("click", () => {
 
 $("editPlanBtn").addEventListener("click", () => {
   const member = activeMember();
-  if (!member) return toast("请先登记/登录员工账号。");
+  if (!member) return toast("请先登录成员账号。");
   const plans = state.memberPlans.filter((p) => Number(p.member_id) === Number(member.id) && p.week === currentWeek());
   $("todoInput").value = plans.length
     ? plans.map((p, index) => `${index + 1}. ${p.title}`).join("\n")
@@ -382,25 +516,38 @@ $("editPlanBtn").addEventListener("click", () => {
 $("showPlanBtn").addEventListener("click", () => $("planEditor").classList.add("hidden"));
 $("submitTodos").addEventListener("click", submitTodos);
 $("publishPlan").addEventListener("click", publishPlan);
-$("giveReward").addEventListener("click", giveReward);
+$("createAccount").addEventListener("click", createAccount);
+$("assignTask").addEventListener("click", assignTask);
+$("giveReward").addEventListener("click", adjustPoints);
 
-$("employeeLoginBtn").addEventListener("click", () => {
-  setEmployeeMode("login");
-  $("employeeModal").classList.remove("hidden");
-});
+$("employeeLoginBtn").addEventListener("click", () => $("employeeModal").classList.remove("hidden"));
 $("cancelEmployee").addEventListener("click", () => $("employeeModal").classList.add("hidden"));
-$("loginModeBtn").addEventListener("click", () => setEmployeeMode("login"));
-$("registerModeBtn").addEventListener("click", () => setEmployeeMode("register"));
-$("confirmEmployee").addEventListener("click", () => {
-  if (employeeMode === "login") employeeLogin();
-  else employeeRegister();
-});
+$("confirmEmployee").addEventListener("click", employeeLogin);
+$("changePasswordBtn").addEventListener("click", () => $("passwordModal").classList.remove("hidden"));
+$("cancelChangePassword").addEventListener("click", () => $("passwordModal").classList.add("hidden"));
+$("confirmChangePassword").addEventListener("click", changePassword);
 $("logoutBtn").addEventListener("click", () => {
   currentEmployee = null;
   localStorage.removeItem("tddCurrentEmployee");
+  pendingAvatarData = "";
   render();
-  toast("已退出员工账号。");
+  toast("已退出成员账号。");
 });
+
+$("bgColorInput").addEventListener("input", () => {
+  document.documentElement.style.setProperty("--bg", $("bgColorInput").value);
+});
+$("avatarInput").addEventListener("change", async () => {
+  const file = $("avatarInput").files[0];
+  if (!file) return;
+  try {
+    pendingAvatarData = await resizeAvatar(file);
+    $("avatarPreview").src = pendingAvatarData;
+  } catch (error) {
+    toast(error.message);
+  }
+});
+$("saveProfile").addEventListener("click", saveProfile);
 
 $("leaderLoginBtn").addEventListener("click", () => $("loginModal").classList.remove("hidden"));
 $("cancelLogin").addEventListener("click", () => $("loginModal").classList.add("hidden"));
@@ -410,10 +557,12 @@ $("confirmLogin").addEventListener("click", async () => {
   if (error || !data) return toast("leader 密码不正确。");
   leaderCode = code;
   sessionStorage.setItem("teamWeeklyLeaderCode", code);
+  await loadLeaderAccounts();
   $("loginModal").classList.add("hidden");
   $("memberView").classList.remove("active");
   $("leaderView").classList.add("active");
   $("memberViewBtn").classList.remove("hidden");
+  render();
 });
 
 $("memberViewBtn").addEventListener("click", () => {
@@ -422,7 +571,6 @@ $("memberViewBtn").addEventListener("click", () => {
   $("memberViewBtn").classList.add("hidden");
 });
 
-setEmployeeMode("login");
 if (!config.SUPABASE_URL || config.SUPABASE_URL.includes("YOUR_PROJECT")) {
   toast("请先填写 config.js 里的 Supabase 配置。");
 } else {

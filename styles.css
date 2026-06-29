@@ -77,6 +77,34 @@ h2 { font-size: 18px; margin-bottom: 12px; }
   align-items: end;
 }
 
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--line);
+  background: #eef2ff;
+  flex: 0 0 auto;
+}
+
+.profile-settings {
+  display: grid;
+  grid-template-columns: 130px minmax(220px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+input[type="color"] {
+  min-height: 42px;
+  padding: 4px;
+}
+
 .label {
   display: block;
   color: var(--muted);
@@ -228,6 +256,13 @@ button {
   gap: 8px;
 }
 
+.leaderView .panel input,
+.leaderView .panel textarea,
+#leaderView .panel input,
+#leaderView .panel textarea {
+  margin-bottom: 8px;
+}
+
 .tabs {
   display: flex;
   gap: 6px;
@@ -292,6 +327,9 @@ button {
     grid-template-columns: 1fr;
   }
   .reward-row {
+    grid-template-columns: 1fr;
+  }
+  .profile-settings {
     grid-template-columns: 1fr;
   }
   .actions, .button-row {

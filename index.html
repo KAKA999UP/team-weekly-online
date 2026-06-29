@@ -15,8 +15,9 @@
         </div>
         <div class="actions">
           <span id="weekLabel" class="pill">本周</span>
-          <button id="employeeLoginBtn" class="ghost">员工登记/登录</button>
-          <button id="logoutBtn" class="ghost hidden">退出员工</button>
+          <button id="employeeLoginBtn" class="ghost">成员登录</button>
+          <button id="changePasswordBtn" class="ghost hidden">修改密码</button>
+          <button id="logoutBtn" class="ghost hidden">退出成员</button>
           <button id="leaderLoginBtn" class="ghost">Leader 登录</button>
           <button id="memberViewBtn" class="ghost hidden">返回成员端</button>
         </div>
@@ -24,14 +25,35 @@
 
       <section id="memberView" class="view active">
         <section class="panel member-head">
-          <div>
-            <span class="label">当前员工</span>
-            <strong id="currentEmployee">未登录</strong>
-            <p class="meta">员工需先登记/登录，才可以提交计划和打卡。</p>
+          <div class="profile-row">
+            <img id="avatarPreview" class="avatar" alt="头像" />
+            <div>
+              <span class="label">当前成员</span>
+              <strong id="currentEmployee">未登录</strong>
+              <p class="meta">成员账号由 Leader 创建。登录后可提交计划、完成任务和打卡。</p>
+            </div>
           </div>
           <div class="score">
             <span>我的积分</span>
             <strong id="myPoints">0</strong>
+          </div>
+        </section>
+
+        <section id="profilePanel" class="panel hidden">
+          <div class="panel-title">
+            <h2>我的页面设置</h2>
+            <span>背景色和头像会保存到云端</span>
+          </div>
+          <div class="profile-settings">
+            <label>
+              <span>网页背景色</span>
+              <input id="bgColorInput" type="color" value="#f6f7fb" />
+            </label>
+            <label>
+              <span>上传头像</span>
+              <input id="avatarInput" type="file" accept="image/*" />
+            </label>
+            <button id="saveProfile" class="primary">保存设置</button>
           </div>
         </section>
 
@@ -61,39 +83,70 @@
           </div>
           <div id="leaderPlans" class="list"></div>
         </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Leader 专属任务</h2>
+          </div>
+          <div id="dedicatedTasks" class="list"></div>
+        </section>
       </section>
 
       <section id="leaderView" class="view">
         <section class="grid">
           <section class="panel">
-            <h2>发布计划</h2>
+            <h2>发布全员计划</h2>
             <input id="leaderTitle" placeholder="计划标题" />
             <textarea id="leaderDetails" placeholder="计划内容"></textarea>
             <button id="publishPlan" class="primary">发布</button>
           </section>
 
           <section class="panel">
-            <h2>员工列表</h2>
-            <div id="memberList" class="list"></div>
+            <h2>新建成员账号</h2>
+            <input id="newMemberName" placeholder="员工姓名备注" />
+            <input id="newUsername" placeholder="初始账户名" />
+            <input id="newPassword" placeholder="初始密码" />
+            <button id="createAccount" class="primary">创建/重置账号</button>
           </section>
         </section>
 
         <section class="panel">
           <div class="panel-title">
-            <h2>积分奖励</h2>
-            <span>Leader 可给指定员工额外加分</span>
+            <h2>成员账号</h2>
+            <span>Leader 可查看初始/当前密码</span>
+          </div>
+          <div id="accountList" class="list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>专属任务</h2>
+            <span>给指定成员分配任务</span>
           </div>
           <div class="reward-row">
-            <select id="rewardMember"></select>
-            <input id="rewardPoints" type="number" min="1" step="1" placeholder="积分" />
-            <input id="rewardReason" placeholder="奖励原因" />
-            <button id="giveReward" class="primary">奖励</button>
+            <select id="taskMember"></select>
+            <input id="taskTitle" placeholder="任务标题" />
+            <input id="taskDetails" placeholder="任务说明" />
+            <button id="assignTask" class="primary">分配</button>
           </div>
         </section>
 
         <section class="panel">
           <div class="panel-title">
-            <h2>全员进度</h2>
+            <h2>积分调整</h2>
+            <span>可增加或减少成员积分</span>
+          </div>
+          <div class="reward-row">
+            <select id="rewardMember"></select>
+            <input id="rewardPoints" type="number" step="1" placeholder="积分，可填负数" />
+            <input id="rewardReason" placeholder="调整原因" />
+            <button id="giveReward" class="primary">调整</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>成员计划与全员进度</h2>
           </div>
           <div id="progressBoard" class="progress-board"></div>
         </section>
@@ -102,18 +155,24 @@
 
     <div id="employeeModal" class="modal hidden">
       <div class="modal-card">
-        <h2>员工登记/登录</h2>
-        <div class="tabs">
-          <button id="loginModeBtn" class="active">登录</button>
-          <button id="registerModeBtn">登记</button>
-        </div>
-        <input id="employeeName" placeholder="姓名（登记时填写）" />
+        <h2>成员登录</h2>
         <input id="employeeUsername" placeholder="账户名" />
         <input id="employeePassword" type="password" placeholder="密码" />
-        <input id="inviteCode" class="hidden" placeholder="邀请码：TDD" />
         <div class="button-row">
           <button id="confirmEmployee" class="primary">登录</button>
           <button id="cancelEmployee">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="passwordModal" class="modal hidden">
+      <div class="modal-card">
+        <h2>修改密码</h2>
+        <input id="oldPassword" type="password" placeholder="原密码" />
+        <input id="newPasswordSelf" type="password" placeholder="新密码，至少 4 位" />
+        <div class="button-row">
+          <button id="confirmChangePassword" class="primary">保存</button>
+          <button id="cancelChangePassword">取消</button>
         </div>
       </div>
     </div>
