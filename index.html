@@ -3,18 +3,20 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>团队周计划</title>
+    <title>探哆哆公司团队周计划</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="shell">
       <header class="topbar">
         <div>
-          <p class="eyebrow">Team Weekly Online</p>
-          <h1>团队周计划</h1>
+          <p class="eyebrow">TDD Team Weekly</p>
+          <h1>探哆哆公司团队周计划</h1>
         </div>
         <div class="actions">
           <span id="weekLabel" class="pill">本周</span>
+          <button id="employeeLoginBtn" class="ghost">员工登记/登录</button>
+          <button id="logoutBtn" class="ghost hidden">退出员工</button>
           <button id="leaderLoginBtn" class="ghost">Leader 登录</button>
           <button id="memberViewBtn" class="ghost hidden">返回成员端</button>
         </div>
@@ -22,10 +24,11 @@
 
       <section id="memberView" class="view active">
         <section class="panel member-head">
-          <label>
-            <span>选择你的名字</span>
-            <select id="memberSelect"></select>
-          </label>
+          <div>
+            <span class="label">当前员工</span>
+            <strong id="currentEmployee">未登录</strong>
+            <p class="meta">员工需先登记/登录，才可以提交计划和打卡。</p>
+          </div>
           <div class="score">
             <span>我的积分</span>
             <strong id="myPoints">0</strong>
@@ -38,6 +41,7 @@
             <span id="completionText">0%</span>
           </div>
           <div class="progress"><span id="completionBar"></span></div>
+          <div id="quoteBox" class="quote hidden"></div>
           <div id="myPlans" class="todo-list"></div>
           <div class="button-row">
             <button id="addPlanBtn">新增计划</button>
@@ -69,13 +73,22 @@
           </section>
 
           <section class="panel">
-            <h2>成员名单</h2>
-            <div class="inline">
-              <input id="newMemberName" placeholder="成员姓名" />
-              <button id="addMember" class="primary">添加</button>
-            </div>
+            <h2>员工列表</h2>
             <div id="memberList" class="list"></div>
           </section>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>积分奖励</h2>
+            <span>Leader 可给指定员工额外加分</span>
+          </div>
+          <div class="reward-row">
+            <select id="rewardMember"></select>
+            <input id="rewardPoints" type="number" min="1" step="1" placeholder="积分" />
+            <input id="rewardReason" placeholder="奖励原因" />
+            <button id="giveReward" class="primary">奖励</button>
+          </div>
         </section>
 
         <section class="panel">
@@ -86,6 +99,24 @@
         </section>
       </section>
     </main>
+
+    <div id="employeeModal" class="modal hidden">
+      <div class="modal-card">
+        <h2>员工登记/登录</h2>
+        <div class="tabs">
+          <button id="loginModeBtn" class="active">登录</button>
+          <button id="registerModeBtn">登记</button>
+        </div>
+        <input id="employeeName" placeholder="姓名（登记时填写）" />
+        <input id="employeeUsername" placeholder="账户名" />
+        <input id="employeePassword" type="password" placeholder="密码" />
+        <input id="inviteCode" class="hidden" placeholder="邀请码：TDD" />
+        <div class="button-row">
+          <button id="confirmEmployee" class="primary">登录</button>
+          <button id="cancelEmployee">取消</button>
+        </div>
+      </div>
+    </div>
 
     <div id="loginModal" class="modal hidden">
       <div class="modal-card">
