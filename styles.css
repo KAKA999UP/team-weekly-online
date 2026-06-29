@@ -15,7 +15,9 @@
 body {
   margin: 0;
   color: var(--ink);
-  background: var(--bg);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.62), rgba(255,255,255,0.2)),
+    var(--bg);
 }
 
 button, input, select, textarea {
@@ -56,7 +58,7 @@ h2 { font-size: 18px; margin-bottom: 12px; }
   border: 1px solid var(--line);
   background: var(--panel);
   border-radius: 8px;
-  box-shadow: 0 12px 34px rgba(24, 33, 47, 0.08);
+  box-shadow: 0 10px 24px rgba(24, 33, 47, 0.07);
 }
 
 .pill {
@@ -72,9 +74,51 @@ h2 { font-size: 18px; margin-bottom: 12px; }
 
 .member-head {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(240px, 1fr) auto minmax(260px, auto);
   gap: 14px;
-  align-items: end;
+  align-items: center;
+}
+
+.member-card,
+.plan-card,
+.leader-card,
+.task-card,
+.suggestion-card,
+.rank-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+.member-card {
+  background: linear-gradient(135deg, #eef6ff, #ffffff 62%, #fff7ed);
+  border-color: rgba(37, 99, 235, 0.18);
+}
+
+.plan-card {
+  background: linear-gradient(135deg, #f0fdf4, #ffffff 60%, #eff6ff);
+  border-color: rgba(15, 159, 110, 0.2);
+}
+
+.leader-card {
+  background: linear-gradient(135deg, #fff7ed, #ffffff 58%, #fef3c7);
+  border-color: rgba(245, 158, 11, 0.28);
+}
+
+.task-card {
+  background: linear-gradient(135deg, #f5f3ff, #ffffff 58%, #ecfeff);
+  border-color: rgba(124, 58, 237, 0.18);
+}
+
+.suggestion-card {
+  background: linear-gradient(135deg, #fdf2f8, #ffffff 62%, #f0fdfa);
+  border-color: rgba(219, 39, 119, 0.16);
+}
+
+.member-work-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
 }
 
 .profile-row {
@@ -98,6 +142,26 @@ h2 { font-size: 18px; margin-bottom: 12px; }
   grid-template-columns: minmax(160px, 1fr) 130px minmax(220px, 1fr) auto;
   gap: 10px;
   align-items: end;
+}
+
+.profile-tools {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 46px 46px 46px;
+  gap: 8px;
+  align-items: center;
+}
+
+.mini-input {
+  min-height: 42px;
+}
+
+.mini-color {
+  width: 46px;
+  min-width: 46px;
+  height: 42px;
+  padding: 4px;
+  border-radius: 8px;
+  cursor: pointer;
 }
 
 input[type="color"] {
@@ -147,6 +211,37 @@ button {
   cursor: pointer;
 }
 
+.icon-row {
+  margin-top: 10px;
+}
+
+.icon-action,
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  background: #fff;
+  color: var(--blue);
+  font-size: 22px;
+  line-height: 1;
+  box-shadow: 0 4px 0 rgba(37, 99, 235, 0.08);
+}
+
+.icon-button input[type="file"] {
+  display: none;
+}
+
+.icon-button.primary {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+
 .primary {
   background: var(--blue);
   color: #fff;
@@ -166,8 +261,10 @@ button {
   min-width: 126px;
   padding: 12px;
   border-radius: 8px;
-  background: #eef7f2;
+  background: #fff;
+  border: 1px solid rgba(15, 159, 110, 0.18);
   color: var(--green);
+  box-shadow: 0 4px 0 rgba(15, 159, 110, 0.1);
 }
 
 .score span { display: block; font-size: 13px; font-weight: 700; }
@@ -281,10 +378,7 @@ button {
 }
 
 .rank-panel {
-  background:
-    radial-gradient(circle at 16px 18px, rgba(255, 202, 40, 0.22) 0 8px, transparent 9px),
-    radial-gradient(circle at calc(100% - 24px) 30px, rgba(72, 187, 120, 0.18) 0 10px, transparent 11px),
-    linear-gradient(135deg, #fff9db, #ecfeff 48%, #f5f3ff);
+  background: linear-gradient(135deg, #fff9db, #ecfeff 48%, #f5f3ff);
   border-color: rgba(245, 158, 11, 0.28);
 }
 
@@ -429,16 +523,23 @@ button {
     grid-template-columns: 1fr;
     flex-direction: column;
   }
-  .grid {
+  .grid,
+  .member-work-grid {
     grid-template-columns: 1fr;
   }
   .reward-row {
     grid-template-columns: 1fr;
   }
   .profile-settings,
+  .profile-tools,
   .query-row,
   .account-item {
     grid-template-columns: 1fr;
+  }
+  .mini-color,
+  .icon-button,
+  .icon-action {
+    width: 100%;
   }
   .account-actions {
     flex-wrap: wrap;

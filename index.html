@@ -24,7 +24,7 @@
       </header>
 
       <section id="memberView" class="view active">
-        <section class="panel member-head">
+        <section class="panel member-head member-card">
           <div class="profile-row">
             <img id="avatarPreview" class="avatar" alt="头像" />
             <div>
@@ -33,35 +33,24 @@
               <p id="currentEmployeeMeta" class="meta">成员账号由 Leader 创建。登录后可提交计划、完成任务和打卡。</p>
             </div>
           </div>
+
           <div class="score">
             <span>我的积分</span>
             <strong id="myPoints">0</strong>
           </div>
-        </section>
 
-        <section id="profilePanel" class="panel hidden">
-          <div class="panel-title">
-            <h2>我的页面设置</h2>
-            <span>昵称、背景色和头像会保存到云端</span>
-          </div>
-          <div class="profile-settings">
-            <label>
-              <span>我的昵称</span>
-              <input id="nicknameInput" placeholder="例如：小张" />
-            </label>
-            <label>
-              <span>网页背景色</span>
-              <input id="bgColorInput" type="color" value="#f6f7fb" />
-            </label>
-            <label>
-              <span>上传头像</span>
+          <div id="profilePanel" class="profile-tools hidden">
+            <input id="nicknameInput" class="mini-input" placeholder="昵称" title="我的昵称" />
+            <input id="bgColorInput" class="mini-color" type="color" value="#f6f7fb" title="背景色" />
+            <label class="icon-button" title="上传头像" aria-label="上传头像">
+              <span>🖼</span>
               <input id="avatarInput" type="file" accept="image/*" />
             </label>
-            <button id="saveProfile" class="primary">保存设置</button>
+            <button id="saveProfile" class="icon-button primary" title="保存设置" aria-label="保存设置">✓</button>
           </div>
         </section>
 
-        <section class="panel">
+        <section class="panel plan-card">
           <div class="panel-title">
             <h2>我的本周计划</h2>
             <span id="completionText">0%</span>
@@ -69,10 +58,10 @@
           <div class="progress"><span id="completionBar"></span></div>
           <div id="quoteBox" class="quote hidden"></div>
           <div id="myPlans" class="todo-list"></div>
-          <div class="button-row">
-            <button id="addPlanBtn">新增计划</button>
-            <button id="editPlanBtn">修改计划</button>
-            <button id="showPlanBtn">显示计划</button>
+          <div class="button-row icon-row">
+            <button id="addPlanBtn" class="icon-action" title="新增计划" aria-label="新增计划">＋</button>
+            <button id="editPlanBtn" class="icon-action" title="修改计划" aria-label="修改计划">✎</button>
+            <button id="showPlanBtn" class="icon-action" title="收起编辑框" aria-label="收起编辑框">⌄</button>
           </div>
           <div id="planEditor" class="editor hidden">
             <p class="hint">一行一个 Todo，最多 5 条，系统会自动整理成 1、2、3 的计划清单。</p>
@@ -81,29 +70,31 @@
           </div>
         </section>
 
-        <section class="panel">
-          <div class="panel-title">
-            <h2>Leader 本周计划</h2>
-          </div>
-          <div id="leaderPlans" class="list"></div>
+        <section class="member-work-grid">
+          <section class="panel leader-card">
+            <div class="panel-title">
+              <h2>Leader 本周计划</h2>
+            </div>
+            <div id="leaderPlans" class="list"></div>
+          </section>
+
+          <section class="panel task-card">
+            <div class="panel-title">
+              <h2>Leader 专属任务</h2>
+            </div>
+            <div id="dedicatedTasks" class="list"></div>
+          </section>
         </section>
 
-        <section class="panel">
-          <div class="panel-title">
-            <h2>Leader 专属任务</h2>
-          </div>
-          <div id="dedicatedTasks" class="list"></div>
-        </section>
-
-        <section class="panel">
+        <section class="panel suggestion-card">
           <div class="panel-title">
             <h2>我给公司提建议</h2>
             <span>提交后 Leader 可以在后台查看</span>
           </div>
           <textarea id="suggestionText" placeholder="写下你的建议、想法或需要 Leader 关注的问题"></textarea>
-            <div class="button-row">
-              <button id="submitSuggestion" class="primary">提交建议</button>
-            </div>
+          <div class="button-row">
+            <button id="submitSuggestion" class="primary">提交建议</button>
+          </div>
         </section>
 
         <section class="panel rank-panel">
